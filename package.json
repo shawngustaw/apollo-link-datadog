@@ -1,10 +1,11 @@
 {
-  "name": "apollo-link-sentry",
-  "version": "4.2.0",
+  "name": "apollo-link-datadog",
+  "version": "0.1.0",
+  "description": "Apollo Link for sending errors to Datadog RUM",
   "license": "MIT",
   "author": "Diederik van den Burger <diederikvandenburger@tab.capital>",
-  "repository": "https://github.com/DiederikvandenB/apollo-link-sentry.git",
-  "homepage": "https://github.com/DiederikvandenB/apollo-link-sentry",
+  "repository": "https://github.com/YOUR_USERNAME/apollo-link-datadog.git",
+  "homepage": "https://github.com/YOUR_USERNAME/apollo-link-datadog",
   "main": "lib-cjs/index.js",
   "module": "lib-esm/index.js",
   "browser": "lib-esm/index.js",
@@ -17,7 +18,8 @@
   "keywords": [
     "apollo",
     "graphql",
-    "sentry",
+    "datadog",
+    "rum",
     "error reporting"
   ],
   "scripts": {
@@ -40,15 +42,14 @@
   },
   "peerDependencies": {
     "@apollo/client": "^3.2.3",
-    "@sentry/core": "^8.33 || ^9",
+    "@datadog/browser-rum": "^6.6.4",
     "graphql": "^15 || ^16"
   },
   "devDependencies": {
     "@apollo/client": "^3.2.3",
+    "@datadog/browser-rum": "^6.6.4",
     "@semantic-release/changelog": "^6.0.2",
     "@semantic-release/git": "^10.0.1",
-    "@sentry/browser": "^8.33 || ^9",
-    "@sentry/core": "^8.33 || ^9",
     "@types/jest": "^27.0.3",
     "@typescript-eslint/eslint-plugin": "^5.7",
     "@typescript-eslint/parser": "^5.7",
@@ -63,7 +64,6 @@
     "prettier": "^2.5.1",
     "rimraf": "^3.0.2",
     "semantic-release": "^20.1.1",
-    "sentry-testkit": "^5.0.5",
     "ts-jest": "^27.1.1",
     "tsc-watch": "^4.5",
     "typescript": "^5"

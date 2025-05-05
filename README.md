@@ -1,46 +1,67 @@
-# Apollo Link Sentry
+# Apollo Link Datadog
 
-[Apollo Link](https://www.apollographql.com/docs/react/api/link/introduction) to enrich [Sentry](https://sentry.io) events with [GraphQL](https://graphql.org) data
+Apollo Link to send GraphQL errors to [Datadog RUM](https://docs.datadoghq.com/real_user_monitoring/browser/).
 
-[![Code Coverage](https://img.shields.io/coveralls/github/DiederikvandenB/apollo-link-sentry/master)](https://coveralls.io/github/DiederikvandenB/apollo-link-sentry?branch=master)
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
 
-[![npm-version](https://img.shields.io/npm/v/apollo-link-sentry)](https://www.npmjs.com/package/apollo-link-sentry)
-[![npm-downloads](https://img.shields.io/npm/dt/apollo-link-sentry)](https://www.npmjs.com/package/apollo-link-sentry)
+[![npm-version](https://img.shields.io/npm/v/apollo-link-datadog)](https://www.npmjs.com/package/apollo-link-datadog)
+[![npm-downloads](https://img.shields.io/npm/dt/apollo-link-datadog)](https://www.npmjs.com/package/apollo-link-datadog)
 
 ## Installation
 
-```
-yarn add apollo-link-sentry
+```bash
+yarn add apollo-link-datadog @datadog/browser-rum
+# or
+npm install apollo-link-datadog @datadog/browser-rum
 ```
 
-**Note**: Due to a release issue, v3.0.0 of this package has been unpublished. Please use v3.0.1
-**Note**: starting from v2.0.0 of this package we support `@apollo/client` v3.0.
+**Note**: This link requires `@apollo/client` v3+ and `@datadog/browser-rum` v5+ (check `package.json` for specific peer dependency versions).
 
 ## Features
 
-Turn this:
+This link automatically captures network and GraphQL errors that occur during your Apollo Client operations and reports them to Datadog RUM using `datadogRum.addError`.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/DiederikvandenB/apollo-link-sentry/master/screenshots/before.png" alt="Before" width="auto" />
-</p>
+It attaches context to the error report, including:
 
-Into this:
+- Operation Name
+- GraphQL Query (excluding fragments by default)
+- Variables (if any)
+- HTTP Status Code (for server errors)
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/DiederikvandenB/apollo-link-sentry/master/screenshots/after.png" alt="After" width="auto" />
-</p>
+You can customize the context attached using the `generateContext` option.
 
 ## Basic setup
 
-Initialize Sentry as you would normally. Then, add `apollo-link-sentry` to your Apollo Client's `link` array:
+Initialize Datadog RUM as you would normally. Then, add `apollo-link-datadog` to your Apollo Client's `link` array:
 
-```js
-import { SentryLink } from 'apollo-link-sentry';
+```javascript
+import {
+  ApolloClient,
+  ApolloLink,
+  HttpLink,
+  InMemoryCache,
+} from '@apollo/client';
+import { datadogRum } from '@datadog/browser-rum';
+import { DatadogLink } from 'apollo-link-datadog';
+
+// Initialize Datadog RUM first
+datadogRum.init({
+  applicationId: 'YOUR_APPLICATION_ID',
+  clientToken: 'YOUR_CLIENT_TOKEN',
+  site: 'datadoghq.com', // or 'datadoghq.eu', etc.
+  service: 'your-service-name',
+  // ... other configuration
+  sessionSampleRate: 100,
+  sessionReplaySampleRate: 20, // or 0 if not needed
+  trackUserInteractions: true,
+  trackResources: true,
+  trackLongTasks: true,
+  defaultPrivacyLevel: 'mask-user-input',
+});
 
 const client = new ApolloClient({
   link: ApolloLink.from([
-    new SentryLink(/* See options */),
+    new DatadogLink(/* See options */),
     new HttpLink({ uri: 'http://localhost:4000' }),
   ]),
   cache: new InMemoryCache(),
@@ -49,100 +70,79 @@ const client = new ApolloClient({
 
 ## Options
 
-See [src/options.ts](src/options.ts).
+```typescript
+import { Operation, ServerError } from '@apollo/client/core';
 
-### Compatibility with other Apollo Links
+export interface DatadogLinkOptions {
+  /**
+   * Determines if the given operation should be handled or discarded.
+   *
+   * If undefined, all operations will be included.
+   * @default () => true
+   */
+  shouldHandleOperation?: (operation: Operation) => boolean;
 
-`apollo-link-sentry` aims to be friendly with other `apollo-link` packages,
-in the sense that we would like for you to be able to attach as much data as you want.
-For example, if you would like to add the HTTP headers you set with `apollo-link-context`,
-you can do that by setting `includeContextKeys: ['headers']`.
-
-In case you find that there's a piece of data you're missing, feel free to open an issue.
-
-### Be careful what you include
-
-Please note that Sentry sets some limits to how big events can be.
-For instance, **events greater than 200KiB are immediately dropped (pre decompression)**.
-More information on that [here](https://docs.sentry.io/accounts/quotas/#attributes-limits).
-Be especially careful with the `includeCache` option, as caches can become quite large.
-
-Furthermore, much of the data you are sending to Sentry can include (sensitive) personal information.
-This might lead you to violating the terms of the GDPR.
-Use Sentry's `beforeBreadcrumb` function to filter out all sensitive data.
-
-## Exclude redundant `fetch` breadcrumbs
-
-By default, Sentry attaches all fetch events as breadcrumbs.
-Since this package tracks GraphQL requests as breadcrumbs,
-they would show up duplicated in Sentry.
-
-You can use either one of the following options to exclude
-redundant `fetch` breadcrumbs:
-
-1. Disable the default integration for fetch requests entirely.
-   Note that this is only recommended if you **only** use GraphQL requests in your application.
-   The default integration can be disabled like this:
-
-   ```js
-   Sentry.init({
-     ...,
-     defaultIntegrations: [
-       new Sentry.BrowserTracing({ traceFetch: false }),
-     ],
-   });
-   ```
-
-2. Use the `beforeBreadcrumb` option of Sentry to filter out the duplicates.
-   The helpers in this package recognize every breadcrumb of category `fetch`
-   where the URL contains `/graphql` as a GraphQL request.
-
-   ```js
-   import { excludeGraphQLFetch } from 'apollo-link-sentry';
-
-   Sentry.init({
-     ...,
-     beforeBreadcrumb: excludeGraphQLFetch,
-   })
-   ```
-
-   If you have a custom wrapper, use the higher order function:
-
-   ```js
-   import { withoutGraphQLFetch } from 'apollo-link-sentry';
-
-   Sentry.init({
-     ...,
-     beforeBreadcrumb: withoutGraphQLFetch((breadcrumb, hint) => { ... }),
-   })
-   ```
-
-## FAQ
-
-### I don't see any events appearing in my Sentry stream
-
-This package only adds breadcrumbs, you are still responsible for reporting errors to Sentry.
-You can do this by calling `Sentry.captureException()`:
-
-```jsx
-<Mutation mutation={MUTATION_THAT_MIGHT_FAIL}>
-  {(mutate, { data, error, loading }) => {
-    if (loading) return <div>loading</div>;
-    if (error) return <div>{error.toString()}</div>;
-
-    const onClick = () =>
-      mutate().catch((error) => {
-        Sentry.captureException(error);
-      });
-
-    return (
-      <div>
-        <button type="button" onClick={() => onClick()}>
-          Mutate
-        </button>
-        {JSON.stringify(data)}
-      </div>
-    );
-  }}
-</Mutation>
+  /**
+   * Function to generate custom context attached to the Datadog error.
+   *
+   * Defaults to extracting operationName, query, variables, and statusCode.
+   */
+  generateContext?: (
+    operation: Operation,
+    error: Error | ServerError,
+  ) => Record<string, unknown>;
+}
 ```
+
+### `shouldHandleOperation`
+
+Use this function to prevent certain operations from being reported to Datadog. For example, you might want to ignore errors from a specific query:
+
+```javascript
+new DatadogLink({
+  shouldHandleOperation: (operation) =>
+    operation.operationName !== 'IntrospectionQuery',
+});
+```
+
+### `generateContext`
+
+Provide a function to customize the context object sent along with the error to `datadogRum.addError`. The function receives the Apollo `Operation` and the `Error` (or `ServerError`) object.
+
+```javascript
+import { print } from 'graphql';
+
+new DatadogLink({
+  generateContext: (operation, error) => {
+    const baseContext = {
+      operationName: operation.operationName,
+      query: print(operation.query),
+      variables: operation.variables,
+      // Add custom context
+      userId: getCurrentUserId(),
+    };
+    if (error.statusCode) {
+      // Check if it's a ServerError
+      baseContext.statusCode = error.statusCode;
+    }
+    return baseContext;
+  },
+});
+```
+
+## Development
+
+See `package.json` for scripts related to building, testing, and linting.
+
+- `yarn build`
+- `yarn test`
+- `yarn lint`
+- `yarn validate`
+
+## Contributing
+
+Please refer to the original repository's contribution guidelines if applicable, or establish new ones for this fork.
+
+## License
+
+MIT

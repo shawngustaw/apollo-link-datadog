@@ -1,7 +1,2 @@
-export { SentryLink } from './SentryLink';
-export { SentryLinkOptions } from './options';
-export { GraphQLBreadcrumb } from './breadcrumb';
-export {
-  excludeGraphQLFetch,
-  withoutGraphQLFetch,
-} from './excludeGraphQLFetch';
+export { DatadogLink, DatadogLinkOptions } from './DataDogLink';
+export { stringify, stringifyObjectKeys } from './utils';
